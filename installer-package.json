@@ -1,0 +1,50 @@
+{
+  "name": "tonycash-tool-installer",
+  "version": "1.0.0",
+  "description": "Instagram Growth Automation Tool - Installer",
+  "main": "installer.js",
+  "author": "SocialGeekUSA",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^latest"
+  },
+  "build": {
+    "appId": "com.socialgeekusa.tonycash-tool",
+    "productName": "TonyCash Tool Installer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "installer.js",
+      "assets/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
