@@ -1,34 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { realTimeLogger, logDeviceAction, logADBCommand } from '@/lib/realtime-logger'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const startTime = Date.now()
+  let deviceId = 'unknown'
+  let action = 'unknown'
+
   try {
     const { exec } = require('child_process')
     const { promisify } = require('util')
     const execAsync = promisify(exec)
     
     const body = await request.json()
-    const { deviceId, action, parameters = {} } = body
+    deviceId = body.deviceId || 'unknown'
+    action = body.action || 'unknown'
+    const parameters = body.parameters || {}
+
+    // Log the incoming request
+    logDeviceAction(deviceId, `API Request: ${action}`, 'started', {
+      parameters,
+      timestamp: new Date().toISOString()
+    })
 
     if (!deviceId || !action) {
+      const error = 'Missing deviceId or action'
+      logDeviceAction(deviceId, action, 'error', { error })
       return NextResponse.json({
         success: false,
-        error: 'Missing deviceId or action'
+        error
       }, { status: 400 })
     }
 
     // Verify device is connected
     try {
+      const adbStartTime = Date.now()
       const { stdout: devices } = await execAsync('adb devices', { timeout: 5000 })
+      const adbDuration = Date.now() - adbStartTime
+      
+      logADBCommand(deviceId, 'adb devices', devices, undefined, adbDuration)
+      
       if (!devices.includes(deviceId)) {
+        const error = 'Device not connected'
+        logDeviceAction(deviceId, action, 'error', { error })
         return NextResponse.json({
           success: false,
-          error: 'Device not connected'
+          error
         }, { status: 404 })
       }
     } catch (error) {
+      const errorMsg = 'ADB not available'
+      logADBCommand(deviceId, 'adb devices', undefined, errorMsg)
+      logDeviceAction(deviceId, action, 'error', { error: errorMsg })
       return NextResponse.json({
         success: false,
-        error: 'ADB not available'
+        error: errorMsg
       }, { status: 500 })
     }
 
@@ -67,12 +92,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           success: false,
           error: `Unknown action: ${action}`
         }
+        logDeviceAction(deviceId, action, 'error', { error: result.error })
     }
+
+    // Log the final result
+    const totalDuration = Date.now() - startTime
+    logDeviceAction(deviceId, action, result.success ? 'success' : 'error', {
+      ...result,
+      duration: totalDuration
+    })
 
     return NextResponse.json(result)
 
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Internal server error'
     console.error('Device action error:', error)
+    logDeviceAction(deviceId, action, 'error', { 
+      error: errorMsg,
+      duration: Date.now() - startTime
+    })
     return NextResponse.json({
       success: false,
       error: 'Internal server error'
@@ -82,45 +120,87 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 // Action implementations
 async function openInstagram(deviceId: string, execAsync: any) {
+  const actionStartTime = Date.now()
+  
   try {
-    console.log(`Opening Instagram on device ${deviceId}`)
+    logDeviceAction(deviceId, 'open_instagram', 'started', { step: 'wake_device' })
     
     // Wake device first
+    const wakeStartTime = Date.now()
     await execAsync(`adb -s ${deviceId} shell input keyevent KEYCODE_WAKEUP`, { timeout: 3000 })
+    const wakeDuration = Date.now() - wakeStartTime
+    logADBCommand(deviceId, 'input keyevent KEYCODE_WAKEUP', 'Device wake command sent', undefined, wakeDuration)
     await new Promise(resolve => setTimeout(resolve, 1000))
     
     // Unlock device (swipe up)
+    logDeviceAction(deviceId, 'open_instagram', 'started', { step: 'unlock_device' })
+    const unlockStartTime = Date.now()
     await execAsync(`adb -s ${deviceId} shell input swipe 500 1500 500 500`, { timeout: 3000 })
+    const unlockDuration = Date.now() - unlockStartTime
+    logADBCommand(deviceId, 'input swipe 500 1500 500 500', 'Unlock swipe performed', undefined, unlockDuration)
     await new Promise(resolve => setTimeout(resolve, 1000))
     
     // Open Instagram app using monkey command (more reliable)
+    logDeviceAction(deviceId, 'open_instagram', 'started', { step: 'launch_app' })
+    const launchStartTime = Date.now()
     await execAsync(`adb -s ${deviceId} shell monkey -p com.instagram.android -c android.intent.category.LAUNCHER 1`, { timeout: 5000 })
+    const launchDuration = Date.now() - launchStartTime
+    logADBCommand(deviceId, 'monkey -p com.instagram.android -c android.intent.category.LAUNCHER 1', 'Instagram launch command sent', undefined, launchDuration)
     await new Promise(resolve => setTimeout(resolve, 3000))
+    
+    const totalDuration = Date.now() - actionStartTime
+    logDeviceAction(deviceId, 'open_instagram', 'success', { 
+      message: 'Instagram opened successfully',
+      duration: totalDuration
+    })
     
     return {
       success: true,
       message: 'Instagram opened successfully',
-      action: 'open_instagram'
+      action: 'open_instagram',
+      duration: totalDuration
     }
   } catch (error) {
-    console.error('Failed to open Instagram:', error)
+    logDeviceAction(deviceId, 'open_instagram', 'error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      step: 'primary_method_failed'
+    })
     
     // Fallback: try using am start with intent
     try {
-      console.log('Trying fallback method to open Instagram...')
+      logDeviceAction(deviceId, 'open_instagram', 'started', { step: 'fallback_method' })
+      const fallbackStartTime = Date.now()
       await execAsync(`adb -s ${deviceId} shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER com.instagram.android`, { timeout: 5000 })
+      const fallbackDuration = Date.now() - fallbackStartTime
+      logADBCommand(deviceId, 'am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER com.instagram.android', 'Fallback Instagram launch', undefined, fallbackDuration)
       await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      const totalDuration = Date.now() - actionStartTime
+      logDeviceAction(deviceId, 'open_instagram', 'success', { 
+        message: 'Instagram opened successfully (fallback method)',
+        duration: totalDuration
+      })
       
       return {
         success: true,
         message: 'Instagram opened successfully (fallback method)',
-        action: 'open_instagram'
+        action: 'open_instagram',
+        duration: totalDuration
       }
     } catch (fallbackError) {
+      const totalDuration = Date.now() - actionStartTime
+      const errorMsg = 'Failed to open Instagram app'
+      logDeviceAction(deviceId, 'open_instagram', 'error', { 
+        error: errorMsg,
+        details: fallbackError instanceof Error ? fallbackError.message : 'Unknown error',
+        duration: totalDuration
+      })
+      
       return {
         success: false,
-        error: 'Failed to open Instagram app',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMsg,
+        details: error instanceof Error ? error.message : 'Unknown error',
+        duration: totalDuration
       }
     }
   }

@@ -13,6 +13,11 @@ const navigation = [
     description: 'Overview & Quick Actions'
   },
   {
+    name: 'Live Dashboard',
+    href: '/dashboard/live',
+    description: 'Real-time Device Monitoring'
+  },
+  {
     name: 'Smart Engagement',
     href: '/engagement',
     description: 'Auto Like, Comment, Follow'

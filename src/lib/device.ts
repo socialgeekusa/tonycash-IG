@@ -1,3 +1,5 @@
+import { logDeviceAction, logADBCommand, logInstagramAction } from './realtime-logger'
+
 export interface DeviceAction {
   id: string
   type: 'tap' | 'swipe' | 'type' | 'wait' | 'screenshot' | 'scroll'
@@ -29,44 +31,75 @@ class DeviceAutomation {
 
   // Device connection methods
   async connectDevice(deviceId: string): Promise<boolean> {
+    const startTime = Date.now()
+    logDeviceAction(deviceId, 'connect_device', 'started')
+    
     try {
       // Check if device is actually connected via ADB
       const { exec } = require('child_process')
       const { promisify } = require('util')
       const execAsync = promisify(exec)
       
+      const adbStartTime = Date.now()
       const { stdout } = await execAsync('adb devices')
+      const adbDuration = Date.now() - adbStartTime
+      logADBCommand(deviceId, 'adb devices', stdout, undefined, adbDuration)
+      
       if (stdout.includes(deviceId)) {
         this.isConnected = true
         this.currentDevice = deviceId
-        console.log(`Connected to device: ${deviceId}`)
+        const totalDuration = Date.now() - startTime
+        logDeviceAction(deviceId, 'connect_device', 'success', { 
+          message: `Connected to device: ${deviceId}`,
+          duration: totalDuration
+        })
         return true
       } else {
-        console.error(`Device ${deviceId} not found in ADB devices`)
+        const error = `Device ${deviceId} not found in ADB devices`
+        logDeviceAction(deviceId, 'connect_device', 'error', { 
+          error,
+          duration: Date.now() - startTime
+        })
         return false
       }
     } catch (error) {
-      console.error('Failed to connect to device:', error)
+      const errorMsg = error instanceof Error ? error.message : 'Failed to connect to device'
+      logDeviceAction(deviceId, 'connect_device', 'error', { 
+        error: errorMsg,
+        duration: Date.now() - startTime
+      })
       return false
     }
   }
 
   async disconnectDevice(): Promise<void> {
+    const deviceId = this.currentDevice || 'unknown'
+    logDeviceAction(deviceId, 'disconnect_device', 'started')
+    
     this.isConnected = false
     this.currentDevice = null
     this.actionQueue = []
-    console.log('Device disconnected')
+    
+    logDeviceAction(deviceId, 'disconnect_device', 'success', { 
+      message: 'Device disconnected'
+    })
   }
 
   // Basic device actions
   async tap(x: number, y: number): Promise<DeviceActionResult> {
     const startTime = Date.now()
+    const deviceId = this.currentDevice || 'unknown'
+    
+    logDeviceAction(deviceId, 'tap', 'started', { coordinates: { x, y } })
     
     if (!this.isConnected) {
+      const error = 'Device not connected'
+      const duration = Date.now() - startTime
+      logDeviceAction(deviceId, 'tap', 'error', { error, coordinates: { x, y }, duration })
       return {
         success: false,
-        error: 'Device not connected',
-        duration: Date.now() - startTime
+        error,
+        duration
       }
     }
 
@@ -76,18 +109,33 @@ class DeviceAutomation {
       const { promisify } = require('util')
       const execAsync = promisify(exec)
       
+      const adbStartTime = Date.now()
       await execAsync(`adb -s ${this.currentDevice} shell input tap ${x} ${y}`)
-      console.log(`Tapped at coordinates: ${x}, ${y} on device ${this.currentDevice}`)
+      const adbDuration = Date.now() - adbStartTime
+      const totalDuration = Date.now() - startTime
+      
+      logADBCommand(deviceId, `input tap ${x} ${y}`, 'Tap command executed', undefined, adbDuration)
+      logDeviceAction(deviceId, 'tap', 'success', { 
+        coordinates: { x, y },
+        duration: totalDuration
+      })
       
       return {
         success: true,
-        duration: Date.now() - startTime
+        duration: totalDuration
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Tap failed'
+      const duration = Date.now() - startTime
+      logDeviceAction(deviceId, 'tap', 'error', { 
+        error: errorMsg,
+        coordinates: { x, y },
+        duration
+      })
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Tap failed',
-        duration: Date.now() - startTime
+        error: errorMsg,
+        duration
       }
     }
   }
