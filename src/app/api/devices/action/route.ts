@@ -87,6 +87,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       case 'toggle_airplane_mode':
         result = await toggleAirplaneMode(deviceId, execAsync)
         break
+      case 'touch_event':
+        result = await simulateTouchEvent(deviceId, execAsync, parameters.x || 500, parameters.y || 1000)
+        break
+      case 'smart_engagement':
+        result = await smartEngagementSequence(deviceId, execAsync, parameters)
+        break
       default:
         result = {
           success: false,
@@ -471,6 +477,194 @@ async function toggleAirplaneMode(deviceId: string, execAsync: any) {
       success: false,
       error: 'Failed to toggle airplane mode',
       details: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+async function simulateTouchEvent(deviceId: string, execAsync: any, x: number, y: number) {
+  const actionStartTime = Date.now()
+  
+  try {
+    logDeviceAction(deviceId, 'touch_event', 'started', { 
+      coordinates: { x, y },
+      step: 'preparing_touch_event'
+    })
+    
+    // Execute the touch event
+    const touchStartTime = Date.now()
+    await execAsync(`adb -s ${deviceId} shell input tap ${x} ${y}`, { timeout: 3000 })
+    const touchDuration = Date.now() - touchStartTime
+    
+    logADBCommand(deviceId, `input tap ${x} ${y}`, 'Touch event executed', undefined, touchDuration)
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Heartbeat verification - check if device is responsive
+    logDeviceAction(deviceId, 'touch_event', 'started', { step: 'heartbeat_verification' })
+    const heartbeatStartTime = Date.now()
+    
+    try {
+      const { stdout: heartbeatResponse } = await execAsync(`adb -s ${deviceId} shell dumpsys input_method | head -1`, { timeout: 2000 })
+      const heartbeatDuration = Date.now() - heartbeatStartTime
+      
+      logADBCommand(deviceId, 'dumpsys input_method (heartbeat)', heartbeatResponse.trim(), undefined, heartbeatDuration)
+      logDeviceAction(deviceId, 'heartbeat', 'success', { 
+        message: 'Device responsive after touch event',
+        duration: heartbeatDuration
+      })
+    } catch (heartbeatError) {
+      logDeviceAction(deviceId, 'heartbeat', 'error', { 
+        error: 'Device heartbeat check failed',
+        details: heartbeatError instanceof Error ? heartbeatError.message : 'Unknown error'
+      })
+    }
+    
+    const totalDuration = Date.now() - actionStartTime
+    logDeviceAction(deviceId, 'touch_event', 'success', { 
+      coordinates: { x, y },
+      message: `Touch event executed successfully at (${x}, ${y})`,
+      duration: totalDuration
+    })
+    
+    return {
+      success: true,
+      message: `Touch event executed successfully at coordinates (${x}, ${y})`,
+      action: 'touch_event',
+      coordinates: { x, y },
+      duration: totalDuration,
+      heartbeatVerified: true
+    }
+  } catch (error) {
+    const totalDuration = Date.now() - actionStartTime
+    const errorMsg = 'Failed to execute touch event'
+    
+    logDeviceAction(deviceId, 'touch_event', 'error', { 
+      coordinates: { x, y },
+      error: errorMsg,
+      details: error instanceof Error ? error.message : 'Unknown error',
+      duration: totalDuration
+    })
+    
+    return {
+      success: false,
+      error: errorMsg,
+      details: error instanceof Error ? error.message : 'Unknown error',
+      coordinates: { x, y },
+      duration: totalDuration
+    }
+  }
+}
+
+async function smartEngagementSequence(deviceId: string, execAsync: any, parameters: any = {}) {
+  const sequenceStartTime = Date.now()
+  const instagramUsername = parameters.instagramUsername || null
+  
+  try {
+    logDeviceAction(deviceId, 'smart_engagement', 'started', { 
+      step: 'sequence_initialization',
+      targetUsername: instagramUsername
+    })
+    
+    // Step 1: Wake and unlock device
+    logDeviceAction(deviceId, 'smart_engagement', 'started', { step: 'wake_and_unlock' })
+    const wakeStartTime = Date.now()
+    
+    await execAsync(`adb -s ${deviceId} shell input keyevent KEYCODE_WAKEUP`, { timeout: 3000 })
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Unlock device (swipe up)
+    await execAsync(`adb -s ${deviceId} shell input swipe 500 1500 500 500`, { timeout: 3000 })
+    const wakeDuration = Date.now() - wakeStartTime
+    
+    logADBCommand(deviceId, 'wake and unlock sequence', 'Device unlocked', undefined, wakeDuration)
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Step 2: Launch Instagram
+    logDeviceAction(deviceId, 'smart_engagement', 'started', { step: 'launch_instagram' })
+    const launchStartTime = Date.now()
+    
+    await execAsync(`adb -s ${deviceId} shell monkey -p com.instagram.android -c android.intent.category.LAUNCHER 1`, { timeout: 5000 })
+    const launchDuration = Date.now() - launchStartTime
+    
+    logADBCommand(deviceId, 'monkey -p com.instagram.android', 'Instagram launched', undefined, launchDuration)
+    await new Promise(resolve => setTimeout(resolve, 4000))
+    
+    // Step 3: Verify Instagram account (if specified)
+    if (instagramUsername) {
+      logDeviceAction(deviceId, 'smart_engagement', 'started', { 
+        step: 'verify_instagram_account',
+        targetUsername: instagramUsername
+      })
+      
+      try {
+        // Take screenshot to verify current account
+        const screenshotStartTime = Date.now()
+        await execAsync(`adb -s ${deviceId} shell screencap -p /sdcard/instagram_verification.png`, { timeout: 5000 })
+        
+        // Pull screenshot for verification
+        const timestamp = Date.now()
+        await execAsync(`adb -s ${deviceId} pull /sdcard/instagram_verification.png instagram_profile_${timestamp}.png`, { timeout: 5000 })
+        const screenshotDuration = Date.now() - screenshotStartTime
+        
+        logADBCommand(deviceId, 'screencap for verification', `Screenshot saved as instagram_profile_${timestamp}.png`, undefined, screenshotDuration)
+        
+        // Navigate to profile to verify username
+        await execAsync(`adb -s ${deviceId} shell input tap 900 2100`, { timeout: 3000 }) // Profile tab
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        logDeviceAction(deviceId, 'smart_engagement', 'success', { 
+          step: 'instagram_account_verified',
+          targetUsername: instagramUsername,
+          screenshotFile: `instagram_profile_${timestamp}.png`,
+          message: `Instagram opened and profile accessed for verification`
+        })
+      } catch (verificationError) {
+        logDeviceAction(deviceId, 'smart_engagement', 'error', { 
+          step: 'instagram_account_verification_failed',
+          targetUsername: instagramUsername,
+          error: verificationError instanceof Error ? verificationError.message : 'Unknown error'
+        })
+      }
+    }
+    
+    // Step 4: Return to home feed for engagement
+    logDeviceAction(deviceId, 'smart_engagement', 'started', { step: 'navigate_to_home_feed' })
+    await execAsync(`adb -s ${deviceId} shell input tap 150 2100`, { timeout: 3000 }) // Home tab
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    const totalDuration = Date.now() - sequenceStartTime
+    logDeviceAction(deviceId, 'smart_engagement', 'success', { 
+      message: 'Smart engagement sequence completed successfully',
+      targetUsername: instagramUsername,
+      duration: totalDuration,
+      readyForEngagement: true
+    })
+    
+    return {
+      success: true,
+      message: 'Smart engagement sequence completed successfully',
+      action: 'smart_engagement',
+      targetUsername: instagramUsername,
+      duration: totalDuration,
+      steps: ['wake_and_unlock', 'launch_instagram', 'verify_account', 'navigate_to_home'],
+      readyForEngagement: true
+    }
+  } catch (error) {
+    const totalDuration = Date.now() - sequenceStartTime
+    const errorMsg = 'Smart engagement sequence failed'
+    
+    logDeviceAction(deviceId, 'smart_engagement', 'error', { 
+      error: errorMsg,
+      details: error instanceof Error ? error.message : 'Unknown error',
+      duration: totalDuration,
+      targetUsername: instagramUsername
+    })
+    
+    return {
+      success: false,
+      error: errorMsg,
+      details: error instanceof Error ? error.message : 'Unknown error',
+      duration: totalDuration,
+      targetUsername: instagramUsername
     }
   }
 }

@@ -107,6 +107,125 @@ export function DeviceController() {
     }
   }
 
+  const handleTouchEvent = async () => {
+    if (!selectedDevice) {
+      toast.error('Please select a device first')
+      return
+    }
+
+    try {
+      updateDeviceStatus(selectedDevice.id, 'busy')
+      toast.info('TOUCH EVENT: Sending touch event to device...')
+      
+      // Default coordinates for testing - center of screen
+      const parameters = {
+        x: 500,
+        y: 1000
+      }
+      
+      const response = await fetch('/api/devices/action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId: selectedDevice.id,
+          action: 'touch_event',
+          parameters
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        updateDeviceStatus(selectedDevice.id, 'connected')
+        toast.success(`TOUCH EVENT: Successfully executed at (${result.coordinates.x}, ${result.coordinates.y})`)
+        console.log('Touch event result:', result)
+      } else {
+        updateDeviceStatus(selectedDevice.id, 'connected')
+        toast.error(`TOUCH EVENT: Failed - ${result.error || 'Unknown error'}`)
+        console.error('Touch event failed:', result)
+      }
+    } catch (error) {
+      updateDeviceStatus(selectedDevice.id, 'connected')
+      
+      let errorMessage = 'TOUCH EVENT: Failed to execute'
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`
+        console.error('Touch event error:', error.message, error.stack)
+      } else {
+        console.error('Touch event error:', error)
+      }
+      
+      toast.error(errorMessage)
+    }
+  }
+
+  const handleSmartEngagement = async () => {
+    if (!selectedDevice) {
+      toast.error('Please select a device first')
+      return
+    }
+
+    try {
+      updateDeviceStatus(selectedDevice.id, 'busy')
+      toast.info('SMART ENGAGEMENT: Starting sequence - unlock, Instagram, verification...')
+      
+      const parameters = {
+        instagramUsername: null // Will use current active account
+      }
+      
+      const response = await fetch('/api/devices/action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId: selectedDevice.id,
+          action: 'smart_engagement',
+          parameters
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        updateDeviceStatus(selectedDevice.id, 'connected')
+        toast.success('SMART ENGAGEMENT: Sequence completed! Device unlocked, Instagram opened, ready for engagement.')
+        console.log('Smart engagement result:', result)
+        
+        // Show additional success info
+        setTimeout(() => {
+          toast.info('Navigate to Smart Engagement tab to start automation features!')
+        }, 2000)
+      } else {
+        updateDeviceStatus(selectedDevice.id, 'connected')
+        toast.error(`SMART ENGAGEMENT: Failed - ${result.error || 'Unknown error'}`)
+        console.error('Smart engagement failed:', result)
+      }
+    } catch (error) {
+      updateDeviceStatus(selectedDevice.id, 'connected')
+      
+      let errorMessage = 'SMART ENGAGEMENT: Failed to execute sequence'
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`
+        console.error('Smart engagement error:', error.message, error.stack)
+      } else {
+        console.error('Smart engagement error:', error)
+      }
+      
+      toast.error(errorMessage)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -206,6 +325,24 @@ export function DeviceController() {
                 disabled={selectedDevice.status === 'busy'}
               >
                 Restart App
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTouchEvent()}
+                disabled={selectedDevice.status === 'busy'}
+                className="bg-blue-50 hover:bg-blue-100 border-blue-200"
+              >
+                Send Touch Event
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSmartEngagement()}
+                disabled={selectedDevice.status === 'busy'}
+                className="bg-green-50 hover:bg-green-100 border-green-200"
+              >
+                Smart Engagement
               </Button>
             </div>
           </div>
