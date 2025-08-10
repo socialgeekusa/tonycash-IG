@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TonyCash Tool - Bypass Instructions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .button {
+            display: inline-block;
+            background: #2196F3;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        .button:hover {
+            background: #1976D2;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 TonyCash Tool Access</h1>
+            <p>Instructions to bypass ngrok browser warning</p>
+        </div>
+
+        <div class="warning">
+            <strong>Note:</strong> ngrok's free plan shows a browser warning page for security. Here's how to bypass it:
+        </div>
+
+        <div class="instructions">
+            <h3>Method 1: Direct Access (Recommended)</h3>
+            <div class="step">
+                <strong>Step 1:</strong> When you see the ngrok warning page, simply click the <strong>"Visit Site"</strong> button
+            </div>
+            <div class="step">
+                <strong>Step 2:</strong> You'll be taken directly to the TonyCash Tool
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>Method 2: Add Custom Header (Advanced Users)</h3>
+            <div class="step">
+                <strong>For Developers:</strong> Add the header <code>ngrok-skip-browser-warning: true</code> to your requests
+            </div>
+            <div class="step">
+                <strong>For Browser Extensions:</strong> Use a header modifier extension to add the bypass header
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>Method 3: Bookmark Direct Link</h3>
+            <div class="step">
+                <strong>Step 1:</strong> After clicking "Visit Site" once, bookmark the direct URL
+            </div>
+            <div class="step">
+                <strong>Step 2:</strong> Use the bookmark for future visits (may still show warning occasionally)
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <p><strong>Current ngrok URL:</strong></p>
+            <p id="ngrok-url" style="font-family: monospace; background: #f0f0f0; padding: 10px; border-radius: 5px;">
+                Check your terminal for the current ngrok URL
+            </p>
+            <p style="color: #666; font-size: 14px;">
+                The URL changes each time you restart ngrok (free plan limitation)
+            </p>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="#" class="button" onclick="window.close()">Close Instructions</a>
+        </div>
+    </div>
+
+    <script>
+        // Try to detect if we're running in an ngrok environment
+        if (window.location.hostname.includes('ngrok')) {
+            document.getElementById('ngrok-url').textContent = window.location.origin;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+version: "2"
+authtoken: 3159CPLlXfOPbCoz7I1jEH9J10B_7vCaTtmHUhzLXwMiWjjY6
+tunnels:
+  tonycash:
+    proto: http
+    addr: 8000
+    inspect: false
+    bind_tls: true
+    host_header: rewrite
+    response_headers:
+      add:
+        - "ngrok-skip-browser-warning: true"
